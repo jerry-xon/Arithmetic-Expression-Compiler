@@ -8,6 +8,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const { tokenize } = require('./compiler/lexer');
 const { parse } = require('./compiler/parser');
@@ -16,10 +17,15 @@ const { generate } = require('./compiler/codegen');
 const { evaluate } = require('./compiler/evaluator');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// In production, serve the built frontend (single-service deploy).
+// Render (or any host) should run `npm run build` in `client/` beforehand.
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(clientDistPath));
 
 // Health check
 app.get('/', (req, res) => {
@@ -132,6 +138,11 @@ app.post('/compile', (req, res) => {
     result,
     error: evalError || (semanticError ? { type: 'SemanticError', ...semanticError } : null),
   });
+});
+
+// SPA fallback (so refresh/deep links work when serving the client)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 app.listen(PORT, () => {
